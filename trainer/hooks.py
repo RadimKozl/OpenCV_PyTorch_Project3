@@ -72,6 +72,9 @@ def train_hook_faster_rcnn(
             prefix, i, loss_avg.avg, loss_avg.val, loss_dict['loss_box_reg'].item(), loss_dict['loss_classifier'].item(), loss_dict['loss_objectness'].item(), loss_dict['loss_rpn_box_reg'].item(), optimizer.param_groups[0]['lr']
         )
         iterator.set_description(status)
+        
+        del images, targets, loss_dict
+        torch.cuda.empty_cache()
     return {"loss": loss_avg.avg}
 
 

@@ -148,6 +148,8 @@ class RCNNTrainer:
                         os.path.join(self.save_dir, self.model.__class__.__name__) + '_' +
                         str(datetime.datetime.now()) + '.pth'
                     )
+                    
+            memory_management(epoch)
 
         return self.metrics
 
