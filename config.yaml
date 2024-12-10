@@ -1,0 +1,30 @@
+system:
+  seed: 42
+  cudnn_benchmark_enabled: false
+  cudnn_deterministic: false
+
+dataset:
+  root_dir: "/kaggle/working/"
+  json_file: "datasets.json"
+
+dataloader:
+  batch_size: 50
+  num_workers: 2
+  data_augmentation: false
+
+optimizer:
+  learning_rate: 0.001
+  momentum: 0.9
+  weight_decay: 0.0001
+  lr_step_milestones: [30, 40]
+  lr_gamma: 0.1
+
+trainer:
+  model_dir: "checkpoints"
+  model_saving_frequency: 1
+  device: "cuda"
+  epoch_num: 50
+  log_interval: 5  
+  test_interval: 1 
+  progress_bar: true
+  normalization: true
