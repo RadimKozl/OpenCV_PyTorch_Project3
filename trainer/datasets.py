@@ -433,5 +433,5 @@ class HDF5Dataset(Dataset):
         variance = (mean_sqrd / len(self.keys)) - (mean ** 2)
         std = np.sqrt(variance)
 
-        print(f"Mean: {mean}, Std: {std}")
+        #print(f"Mean: {mean}, Std: {std}")
         return mean, std
