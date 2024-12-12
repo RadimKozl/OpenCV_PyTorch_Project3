@@ -364,7 +364,12 @@ class HDF5Dataset(Dataset):
             target (dict): Dictionary containing 'boxes' and 'labels'.
         """
         key = self.keys[idx]
-        data_json = self.hdf5_file[self.dataset_type][key][:].tobytes().decode('utf-8')
+        try:
+            # Fix for scalar dataspace issue
+            data_json = self.hdf5_file[self.dataset_type][key][()].decode('utf-8')
+        except Exception:
+            data_json = self.hdf5_file[self.dataset_type][key][:].tobytes().decode('utf-8')
+
         data = json.loads(data_json)
 
         # Load image and boxes.
@@ -383,8 +388,8 @@ class HDF5Dataset(Dataset):
             boxes.append([float(xmin), float(ymin), float(xmax), float(ymax)])
             labels.append(int(class_label))
 
-        boxes = torch.Tensor(boxes)
-        labels = torch.LongTensor(labels)
+        boxes = torch.tensor(boxes, dtype=torch.float32)
+        labels = torch.tensor(labels, dtype=torch.int64)
 
         # Data augmentation.
         if self.transform is not None:
@@ -393,9 +398,10 @@ class HDF5Dataset(Dataset):
         if self.train:
             img, boxes = random_flip(img, boxes)
 
-        target = dict()
-        target["boxes"] = boxes
-        target["labels"] = labels
+        target = {
+            "boxes": boxes,
+            "labels": labels
+        }
 
         return img, target
 
@@ -416,33 +422,26 @@ class HDF5Dataset(Dataset):
         for key in self.keys:
             try:
                 # Read data from HDF5, adapting for scalar values
-                data_json = self.hdf5_file[self.dataset_type][key][()]
-                data_json = data_json.decode('utf-8')  # Decode if byte string
+                data_json = self.hdf5_file[self.dataset_type][key][()].decode('utf-8')
                 data = json.loads(data_json)
                 img_path = data["path"]
+                img = Image.open(img_path).convert("RGB")
+                img_np = np.array(img, dtype=np.float32) / 255.0
 
-                # Load image
-                image = Image.open(img_path).convert("RGB")
-                image = np.array(image).astype(np.float32) / 255.0  # Normalize to [0,1]
+                # Accumulate pixel statistics
+                mean += img_np.mean(axis=(0, 1))
+                mean_sqrd += (img_np ** 2).mean(axis=(0, 1))
+                n_pixels += 1
 
-                # Add to the total pixel count
-                n_pixels += image.shape[0] * image.shape[1]
-
-                # Calculate per-channel mean and squared mean
-                mean += np.sum(image, axis=(0, 1))
-                mean_sqrd += np.sum(image ** 2, axis=(0, 1))
             except Exception as e:
-                print(f"Error processing key {key}: {e}")
-                continue
+                print(f"Skipping image {key} due to error: {e}")
 
-        if n_pixels == 0:
-            raise ValueError("No valid pixels found in the dataset.")
-
-        # Calculate final mean
         mean /= n_pixels
-
-        # Calculate variance and std (per-channel)
-        variance = (mean_sqrd / n_pixels) - (mean ** 2)
-        std = np.sqrt(variance)
+        mean_sqrd /= n_pixels
+        std = np.sqrt(mean_sqrd - mean ** 2)
 
         return mean, std
+
+    def __del__(self):
+        if hasattr(self, 'hdf5_file') and self.hdf5_file:
+            self.hdf5_file.close()
