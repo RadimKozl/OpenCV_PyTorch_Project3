@@ -410,34 +410,39 @@ class HDF5Dataset(Dataset):
         mean_sqrd = np.zeros(3)
         n_pixels = 0
 
+        if len(self.keys) == 0:
+            raise ValueError("No valid keys found in the dataset.")
+
         for key in self.keys:
-            # Read data from HDF5, adapting for scalar values
             try:
+                # Read data from HDF5, adapting for scalar values
                 data_json = self.hdf5_file[self.dataset_type][key][()]
                 data_json = data_json.decode('utf-8')  # Decode if byte string
                 data = json.loads(data_json)
+                img_path = data["path"]
+
+                # Load image
+                image = Image.open(img_path).convert("RGB")
+                image = np.array(image).astype(np.float32) / 255.0  # Normalize to [0,1]
+
+                # Add to the total pixel count
+                n_pixels += image.shape[0] * image.shape[1]
+
+                # Calculate per-channel mean and squared mean
+                mean += np.sum(image, axis=(0, 1))
+                mean_sqrd += np.sum(image ** 2, axis=(0, 1))
             except Exception as e:
-                print(f"Error reading key {key}: {e}")
+                print(f"Error processing key {key}: {e}")
                 continue
 
-            img_path = data["path"]
-
-            # Load image
-            image = Image.open(img_path).convert("RGB")
-            image = np.array(image).astype(np.float32) / 255.0  # Normalize to [0,1]
-
-            # Add to the total pixel count
-            n_pixels += image.shape[0] * image.shape[1]
-
-            # Calculate per-channel mean and squared mean
-            mean += np.mean(image, axis=(0, 1))
-            mean_sqrd += np.mean(image ** 2, axis=(0, 1))
+        if n_pixels == 0:
+            raise ValueError("No valid pixels found in the dataset.")
 
         # Calculate final mean
-        mean /= len(self.keys)
+        mean /= n_pixels
 
         # Calculate variance and std (per-channel)
-        variance = (mean_sqrd / len(self.keys)) - (mean ** 2)
+        variance = (mean_sqrd / n_pixels) - (mean ** 2)
         std = np.sqrt(variance)
 
         return mean, std
