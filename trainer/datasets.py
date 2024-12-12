@@ -9,6 +9,7 @@ This module store class for create PyTorch Dataloader from files
 import os
 import json
 import sys
+import h5py
 import numpy as np
 
 from PIL import Image
@@ -312,3 +313,125 @@ class JsonClassificationDataset(Dataset):
         return mean, std
 
 
+class HDF5Dataset(Dataset):
+    """
+    Class for loading dataset from an HDF5 file.
+
+    This class loads a dataset with a specific structure of directories and labels stored in an HDF5 file.
+    The dataset structure is similar to the one used in the original dataset:
+    https://www.kaggle.com/datasets/mbkinaci/fruit-images-for-object-detection
+
+    Args:
+        Dataset (class): PyTorch Dataset class
+    """
+
+    def __init__(self, hdf5_file, dataset_type, transform=None, train=False):
+        """
+        Initialization method for the HDF5Dataset class.
+
+        Args:
+            hdf5_file (str): Path to the HDF5 file.
+            dataset_type (str): Type of dataset ('train', 'valid', 'test').
+            transform (callable, optional): Optional transform to be applied on a sample.
+            train (bool): True if the dataset is for training, False otherwise.
+        """
+        self.hdf5_file = h5py.File(hdf5_file, 'r')
+        self.dataset_type = dataset_type
+        self.transform = transform
+        self.train = train
+        self.keys = list(self.hdf5_file[dataset_type].keys())
+        self.class_number = self.hdf5_file.attrs['class_number']
+        self.names_class = self.hdf5_file.attrs['names_class']
+
+    def __len__(self):
+        """
+        Returns the number of samples in the dataset.
+
+        Returns:
+            int: Number of samples.
+        """
+        return len(self.keys)
+
+    def __getitem__(self, idx):
+        """
+        Loads an image and its corresponding bounding boxes and labels.
+
+        Args:
+            idx (int): Index of the sample to load.
+
+        Returns:
+            img (tensor): Image tensor.
+            target (dict): Dictionary containing 'boxes' and 'labels'.
+        """
+        key = self.keys[idx]
+        data_json = self.hdf5_file[self.dataset_type][key][:].tobytes().decode('utf-8')
+        data = json.loads(data_json)
+
+        # Load image and boxes.
+        img_path = data["path"]
+        img = Image.open(img_path).convert("RGB")
+        img = F.to_tensor(img)
+
+        boxes = []
+        labels = []
+        for box in data["boxes"]:
+            xmin = box["box_coordinates"]["xmin"]
+            ymin = box["box_coordinates"]["ymin"]
+            xmax = box["box_coordinates"]["xmax"]
+            ymax = box["box_coordinates"]["ymax"]
+            class_label = box["idlabel"]
+            boxes.append([float(xmin), float(ymin), float(xmax), float(ymax)])
+            labels.append(int(class_label))
+
+        boxes = torch.Tensor(boxes)
+        labels = torch.LongTensor(labels)
+
+        # Data augmentation.
+        if self.transform is not None:
+            img = self.transform(img)
+
+        if self.train:
+            img, boxes = random_flip(img, boxes)
+
+        target = dict()
+        target["boxes"] = boxes
+        target["labels"] = labels
+
+        return img, target
+
+    def calculate_mean_std_manual(self):
+        """
+        Method for manually calculating mean and standard deviation of the dataset.
+
+        Returns:
+            tuple: mean and std for each channel (R, G, B)
+        """
+        mean = np.zeros(3)
+        mean_sqrd = np.zeros(3)
+        n_pixels = 0
+
+        for key in self.keys:
+            data_json = self.hdf5_file[self.dataset_type][key][:].tobytes().decode('utf-8')
+            data = json.loads(data_json)
+            img_path = data["path"]
+
+            # Load image
+            image = Image.open(img_path).convert("RGB")
+            image = np.array(image).astype(np.float32) / 255.0  # Normalize to [0,1]
+
+            # Add to the total pixel count
+            n_pixels += image.shape[0] * image.shape[1]
+
+            # Calculate per-channel mean and squared mean
+            mean += np.mean(image, axis=(0, 1))
+            mean_sqrd += np.mean(image ** 2, axis=(0, 1))
+
+        # Calculate final mean
+        mean /= len(self.keys)
+
+        # Calculate variance and std (per-channel)
+        variance = (mean_sqrd / len(self.keys)) - (mean ** 2)
+        std = np.sqrt(variance)
+
+        print(f"Mean: {mean}, Std: {std}")
+        return mean, std
