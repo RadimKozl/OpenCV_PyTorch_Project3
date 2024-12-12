@@ -411,8 +411,15 @@ class HDF5Dataset(Dataset):
         n_pixels = 0
 
         for key in self.keys:
-            data_json = self.hdf5_file[self.dataset_type][key][:].tobytes().decode('utf-8')
-            data = json.loads(data_json)
+            # Read data from HDF5, adapting for scalar values
+            try:
+                data_json = self.hdf5_file[self.dataset_type][key][()]
+                data_json = data_json.decode('utf-8')  # Decode if byte string
+                data = json.loads(data_json)
+            except Exception as e:
+                print(f"Error reading key {key}: {e}")
+                continue
+
             img_path = data["path"]
 
             # Load image
@@ -433,5 +440,4 @@ class HDF5Dataset(Dataset):
         variance = (mean_sqrd / len(self.keys)) - (mean ** 2)
         std = np.sqrt(variance)
 
-        #print(f"Mean: {mean}, Std: {std}")
         return mean, std
