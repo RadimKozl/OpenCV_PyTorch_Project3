@@ -366,14 +366,21 @@ class HDF5Dataset(Dataset):
         key = self.keys[idx]
         try:
             # Fix for scalar dataspace issue
-            data_json = self.hdf5_file[self.dataset_type][key][()].decode('utf-8')
-        except Exception:
-            data_json = self.hdf5_file[self.dataset_type][key][:].tobytes().decode('utf-8')
+            dataset_entry = self.hdf5_file[self.dataset_type][key]
+            if dataset_entry.shape == ():  # Scalar dataspace
+                data_json = dataset_entry[()].decode('utf-8')
+            else:
+                data_json = dataset_entry[:].tobytes().decode('utf-8')
+        except Exception as e:
+            raise ValueError(f"Error reading data for key {key}: {e}")
 
         data = json.loads(data_json)
 
         # Load image and boxes.
-        img_path = data["path"]
+        img_path = data.get("path", "")
+        if not os.path.exists(img_path):
+            raise FileNotFoundError(f"Image path {img_path} does not exist.")
+
         img = Image.open(img_path).convert("RGB")
         img = F.to_tensor(img)
 
@@ -417,14 +424,24 @@ class HDF5Dataset(Dataset):
         n_pixels = 0
 
         if len(self.keys) == 0:
-            raise ValueError("No valid keys found in the dataset.")
+            raise ValueError("No valid keys found in the dataset. Ensure the dataset is correctly initialized and contains entries.")
 
         for key in self.keys:
             try:
                 # Read data from HDF5, adapting for scalar values
-                data_json = self.hdf5_file[self.dataset_type][key][()].decode('utf-8')
+                dataset_entry = self.hdf5_file[self.dataset_type][key]
+                if dataset_entry.shape == ():  # Scalar dataspace
+                    data_json = dataset_entry[()].decode('utf-8')
+                else:
+                    data_json = dataset_entry[:].tobytes().decode('utf-8')
+
                 data = json.loads(data_json)
-                img_path = data["path"]
+                img_path = data.get("path", "")
+
+                if not os.path.exists(img_path):
+                    print(f"Skipping image {img_path} as it does not exist.")
+                    continue
+
                 img = Image.open(img_path).convert("RGB")
                 img_np = np.array(img, dtype=np.float32) / 255.0
 
