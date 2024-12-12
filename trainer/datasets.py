@@ -390,7 +390,7 @@ class HDF5Dataset(Dataset):
         if self.transform is not None:
             img = self.transform(img)
 
-        if self.train and self.transform is None:
+        if self.train:
             img, boxes = random_flip(img, boxes)
 
         target = dict()
