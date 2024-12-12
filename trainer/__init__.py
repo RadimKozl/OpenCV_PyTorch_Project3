@@ -1,3 +1,3 @@
-from .trainer import Trainer
+from .trainer import DefaultTrainer, RCNNTrainer
 
 
