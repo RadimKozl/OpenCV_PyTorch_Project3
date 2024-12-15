@@ -335,13 +335,17 @@ class HDF5Dataset(Dataset):
             transform (callable, optional): Optional transform to be applied on a sample.
             train (bool): True if the dataset is for training, False otherwise.
         """
-        self.hdf5_file = h5py.File(hdf5_file, 'r')
+        self.hdf5_file = hdf5_file
         self.dataset_type = dataset_type
         self.transform = transform
         self.train = train
-        self.keys = list(self.hdf5_file[dataset_type].keys())
-        self.class_number = self.hdf5_file.attrs['class_number']
-        self.names_class = self.hdf5_file.attrs['names_class']
+        
+        self.database = h5py.File(self.hdf5_file, 'r')
+        self.dataset = self.database[self.dataset_type]
+        self.database_attribute = list(self.database.attrs.keys())
+        self.class_number = int(self.database.attrs[self.database_attribute[0]])
+        self.names_class = list(self.database.attrs[self.database_attribute[1]])
+        self.list_files = list(self.database[self.dataset_type].key())
 
     def __len__(self):
         """
@@ -350,7 +354,7 @@ class HDF5Dataset(Dataset):
         Returns:
             int: Number of samples.
         """
-        return len(self.keys)
+        return len(self.list_files)
 
     def __getitem__(self, idx):
         """
@@ -363,37 +367,41 @@ class HDF5Dataset(Dataset):
             img (tensor): Image tensor.
             target (dict): Dictionary containing 'boxes' and 'labels'.
         """
-        key = self.keys[idx]
+        image_name = self.list_files[idx]
         try:
-            # Fix for scalar dataspace issue
-            dataset_entry = self.hdf5_file[self.dataset_type][key]
-            if dataset_entry.shape == ():  # Scalar dataspace
-                data_json = dataset_entry[()].decode('utf-8')
-            else:
-                data_json = dataset_entry[:].tobytes().decode('utf-8')
+            image_link = self.dataset[image_name]['image_link'][:]
+            image_link = image_link.tolist()[0]
+            image_link = image_link.decode('UTF-8')
+            
+    
+            boxes_values = self.dataset[image_name].attrs['boxes']
+            boxes_values = boxes_values.tolist()
+            
+            image_labels = self.dataset[image_name].attrs['labels']
+            image_labels = image_labels.tolist()
+            
         except Exception as e:
-            raise ValueError(f"Error reading data for key {key}: {e}")
+            raise ValueError(f"Error reading data for image_name {image_name}: {e}")
 
-        data = json.loads(data_json)
 
         # Load image and boxes.
-        img_path = data.get("path", "")
-        if not os.path.exists(img_path):
-            raise FileNotFoundError(f"Image path {img_path} does not exist.")
+        if not os.path.exists(image_link):
+            raise FileNotFoundError(f"Image path {image_link} does not exist.")
 
-        img = Image.open(img_path).convert("RGB")
+        img = Image.open(image_link).convert("RGB")
         img = F.to_tensor(img)
 
         boxes = []
         labels = []
-        for box in data["boxes"]:
-            xmin = box["box_coordinates"]["xmin"]
-            ymin = box["box_coordinates"]["ymin"]
-            xmax = box["box_coordinates"]["xmax"]
-            ymax = box["box_coordinates"]["ymax"]
-            class_label = box["idlabel"]
+        for box in boxes_values:
+            xmin = box[0]
+            ymin = box[1]
+            xmax = box[2]
+            ymax = box[3]
             boxes.append([float(xmin), float(ymin), float(xmax), float(ymax)])
-            labels.append(int(class_label))
+        
+        for label in image_labels:
+            labels.append(int(label))
 
         boxes = torch.tensor(boxes, dtype=torch.float32)
         labels = torch.tensor(labels, dtype=torch.int64)
@@ -423,26 +431,21 @@ class HDF5Dataset(Dataset):
         mean_sqrd = np.zeros(3)
         n_pixels = 0
 
-        if len(self.keys) == 0:
+        if len(self.list_files) == 0:
             raise ValueError("No valid keys found in the dataset. Ensure the dataset is correctly initialized and contains entries.")
 
-        for key in self.keys:
+        for name_file in self.list_files:
             try:
                 # Read data from HDF5, adapting for scalar values
-                dataset_entry = self.hdf5_file[self.dataset_type][key]
-                if dataset_entry.shape == ():  # Scalar dataspace
-                    data_json = dataset_entry[()].decode('utf-8')
-                else:
-                    data_json = dataset_entry[:].tobytes().decode('utf-8')
+                image_link = self.dataset[name_file]['image_link'][:]
+                image_link = image_link.tolist()[0]
+                image_link = image_link.decode('UTF-8')
 
-                data = json.loads(data_json)
-                img_path = data.get("path", "")
-
-                if not os.path.exists(img_path):
-                    print(f"Skipping image {img_path} as it does not exist.")
+                if not os.path.exists(image_link):
+                    print(f"Skipping image {image_link} as it does not exist.")
                     continue
 
-                img = Image.open(img_path).convert("RGB")
+                img = Image.open(image_link).convert("RGB")
                 img_np = np.array(img, dtype=np.float32) / 255.0
 
                 # Accumulate pixel statistics
@@ -451,7 +454,7 @@ class HDF5Dataset(Dataset):
                 n_pixels += 1
 
             except Exception as e:
-                print(f"Skipping image {key} due to error: {e}")
+                print(f"Skipping image {name_file} due to error: {e}")
 
         mean /= n_pixels
         mean_sqrd /= n_pixels
