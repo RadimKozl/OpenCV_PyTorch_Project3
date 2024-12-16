@@ -466,6 +466,6 @@ class HDF5Dataset(Dataset):
 
         return mean, std
 
-    def __del__(self):
+    def close(self):
         if hasattr(self, 'hdf5_file') and self.hdf5_file:
-            self.hdf5_file.close()
+            self.database.close()
