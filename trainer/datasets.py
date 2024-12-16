@@ -346,7 +346,7 @@ class HDF5Dataset(Dataset):
             self.database_attribute = list(self.database.attrs.keys())
             self.class_number = int(self.database.attrs[self.database_attribute[0]])
             self.names_class = list(self.database.attrs[self.database_attribute[1]])
-            self.list_files = list(self.database[self.dataset_type].key())
+            self.list_files = list(self.database[self.dataset_type].keys())
         except FileNotFoundError:
             print(f"Error: HDF5 file not found {self.hdf5_file}")
             
