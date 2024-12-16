@@ -340,9 +340,13 @@ class HDF5Dataset(Dataset):
         self.transform = transform
         self.train = train
         
-        self.database = h5py.File(self.hdf5_file, 'r')
-        self.dataset = self.database[self.dataset_type]
-        self.database_attribute = list(self.database.attrs.keys())
+        try:
+            self.database = h5py.File(self.hdf5_file, 'r')
+            self.dataset = self.database[self.dataset_type]
+            self.database_attribute = list(self.database.attrs.keys())
+        except FileNotFoundError:
+            print(f"Error: HDF5 file not found {self.hdf5_file}")
+            
         self.class_number = int(self.database.attrs[self.database_attribute[0]])
         self.names_class = list(self.database.attrs[self.database_attribute[1]])
         self.list_files = list(self.database[self.dataset_type].key())
