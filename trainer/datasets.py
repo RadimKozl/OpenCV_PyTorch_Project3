@@ -395,7 +395,7 @@ class HDF5Dataset(Dataset):
             raise FileNotFoundError(f"Image path {image_link} does not exist.")
 
         img = Image.open(image_link).convert("RGB")
-        h_img, w_img, c_img = img.shape
+        w_img = img.width
         
         if self.train:
             scale_factor = round(self.width_image/w_img, 2)
