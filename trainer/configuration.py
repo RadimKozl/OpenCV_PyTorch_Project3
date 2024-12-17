@@ -51,13 +51,13 @@ class DatasetConfig:
 
     Args:
         root_dir (str, optional): Root directory
-        json_file (str, optional): Name of json file of datasets
+        hdf5_file (str, optional): Name of HDF5 file of database
         train_transforms (torch.Tensor, optional): Data transformation to use during training data preparation
         test_transforms (torch.Tensor, optional): Data transformation to use during test data preparation
         
     """
     root_dir: str = "data"  # dataset directory root
-    json_file: str = "datasets.json"
+    hdf5_file: str = "datasets.hdf5"
     train_transforms: Iterable[Callable] = (
         ToTensor(),
     )  # data transformation to use during training data preparation
@@ -79,7 +79,7 @@ class DatasetConfig:
         
         return cls(
             root_dir=dataset_config.get('root_dir', cls.root_dir),
-            json_file=dataset_config.get('json_file', cls.json_file)
+            hdf5_file=dataset_config.get('hdf5_file', cls.hdf5_file),
         )
 
 
@@ -167,7 +167,8 @@ class TrainerConfig:
         model_saving_frequency (int, optional): Frequency of model state savings per epochs
         device (str, optional): Device to use for training.
         epoch_num (int, optional): Number of times the whole dataset will be passed through the network
-        progress_bar (bool, optional): Enable progress bar visualization during train process    
+        progress_bar (bool, optional): Enable progress bar visualization during train process
+        normalization (bool, optional): Enable of normalization of samples    
     """    
     
     model_dir: str = "checkpoints"
@@ -176,6 +177,7 @@ class TrainerConfig:
     device: str = "cpu"
     epoch_num: int = 50
     progress_bar: bool = False
+    normalization: bool= False
     
     @classmethod
     def from_yaml(cls, config: dict):
@@ -196,7 +198,8 @@ class TrainerConfig:
             model_saving_frequency=trainer_config.get('model_saving_frequency', cls.model_saving_frequency),
             device=trainer_config.get('device', cls.device),
             epoch_num=trainer_config.get('epoch_num', cls.epoch_num),
-            progress_bar=trainer_config.get('progress_bar', cls.progress_bar)
+            progress_bar=trainer_config.get('progress_bar', cls.progress_bar),
+            normalization=trainer_config.get('normalization', cls.normalization)
         )
 
        

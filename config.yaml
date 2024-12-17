@@ -25,5 +25,5 @@ trainer:
   model_saving_frequency: 1
   device: "cpu"
   epoch_num: 50
-  progress_bar: true
+  progress_bar: false
   normalization: false
