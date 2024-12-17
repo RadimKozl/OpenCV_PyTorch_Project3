@@ -1,14 +1,14 @@
 system:
   seed: 42
   cudnn_benchmark_enabled: false
-  cudnn_deterministic: false
+  cudnn_deterministic: true
 
 dataset:
   root_dir: "/kaggle/working/"
-  json_file: "datasets.json"
+  hdf5_file: "datasets.hdf5"
 
 dataloader:
-  batch_size: 50
+  batch_size: 250
   num_workers: 2
   data_augmentation: false
 
@@ -21,10 +21,9 @@ optimizer:
 
 trainer:
   model_dir: "checkpoints"
+  model_save_best: true
   model_saving_frequency: 1
-  device: "cuda"
+  device: "cpu"
   epoch_num: 50
-  log_interval: 5  
-  test_interval: 1 
   progress_bar: true
-  normalization: true
+  normalization: false
