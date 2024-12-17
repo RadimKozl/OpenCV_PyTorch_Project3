@@ -147,6 +147,40 @@ def random_flip(img, bbox):
     return img, bbox
 
 
+def scale_image_with_boxes(image, boxes, scale_factor):
+    """
+        Scales the image and adjusts the bounding box coordinates accordingly.
+
+    Args:
+        image: Original image (numpy array).
+        boxes: List of bounding boxes in the format [[x1, y1, x2, y2]].
+        scale_factor: The factor by which the image will be enlarged or reduced.
+
+    Returns:
+        New image and modified bounding boxes.
+    """
+
+    # Get the dimensions of the original image
+    h, w, _ = image.shape
+
+    # Calculating new dimensions
+    new_h = int(h * scale_factor)
+    new_w = int(w * scale_factor)
+
+    # Image scaling
+    resized_image = cv2.resize(image, (new_w, new_h))
+
+    # Editing bounding box coordinates
+    scaled_boxes = []
+    
+    for sel_list in boxes:
+        scale_list = []
+        scale_list = [i * scale_factor for i in sel_list]
+        scaled_boxes.append(scale_list)
+
+    return resized_image, scaled_boxes
+
+   
 def collate_fn(batch):
     """Function to convert a batch of data into a tuple of tuples.
     

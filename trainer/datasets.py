@@ -18,7 +18,7 @@ import torch
 from torch.utils.data import Dataset
 from torchvision.transforms import functional as F
 
-from .utils import random_flip
+from .utils import random_flip, scale_image_with_boxes
 
 
 class ListDataset(Dataset):
@@ -325,7 +325,7 @@ class HDF5Dataset(Dataset):
         Dataset (class): PyTorch Dataset class
     """
 
-    def __init__(self, hdf5_file, dataset_type, transform=None, train=False):
+    def __init__(self, hdf5_file, dataset_type, transform=None, train=False, width_image=800):
         """
         Initialization method for the HDF5Dataset class.
 
@@ -334,11 +334,13 @@ class HDF5Dataset(Dataset):
             dataset_type (str): Type of dataset ('train', 'valid', 'test').
             transform (callable, optional): Optional transform to be applied on a sample.
             train (bool): True if the dataset is for training, False otherwise.
+            width_image (int, optional): required image width for training
         """
         self.hdf5_file = hdf5_file
         self.dataset_type = dataset_type
         self.transform = transform
         self.train = train
+        self.width_image = width_image
         
         try:
             self.database = h5py.File(self.hdf5_file, 'r')
@@ -350,7 +352,7 @@ class HDF5Dataset(Dataset):
         except FileNotFoundError:
             print(f"Error: HDF5 file not found {self.hdf5_file}")
             
-
+                   
     def __len__(self):
         """
         Returns the number of samples in the dataset.
@@ -393,6 +395,12 @@ class HDF5Dataset(Dataset):
             raise FileNotFoundError(f"Image path {image_link} does not exist.")
 
         img = Image.open(image_link).convert("RGB")
+        h_img, w_img, c_img = img.shape
+        
+        if self.train:
+            scale_factor = round(self.width_image/w_img, 2)
+            img, boxes_values = scale_image_with_boxes(img, boxes_values, scale_factor)
+        
         img = F.to_tensor(img)
 
         boxes = []
