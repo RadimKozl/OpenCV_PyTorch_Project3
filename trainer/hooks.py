@@ -19,7 +19,7 @@ import torch
 
 from tqdm.auto import tqdm
 
-from .utils import AverageMeter
+from .utils import AverageMeter, progress_bar
 
 
 def train_hook_faster_rcnn(
@@ -29,7 +29,7 @@ def train_hook_faster_rcnn(
     device,
     data_getter=None,  
     target_getter=None, 
-    iterator_type=tqdm,
+    iterator_type=progress_bar,
     prefix="",
     stage_progress=False
 ):
@@ -51,7 +51,7 @@ def train_hook_faster_rcnn(
             loss: average loss.
     """
     model = model.train()
-    iterator = iterator_type(loader, disable=not stage_progress, dynamic_ncols=True)
+    iterator = iterator_type(loader, total=len(loader), prefix=prefix) if stage_progress else loader
     loss_avg = AverageMeter()
     for i, sample in enumerate(iterator):
         
@@ -68,13 +68,25 @@ def train_hook_faster_rcnn(
 
         optimizer.step()
         loss_avg.update(losses.item())
-        status = "{0}[Train][{1}] Loss_avg: {2:.5}, Loss: {3:.5}, loss_box_reg: {4:.5}, loss_classifier: {5:.5}, loss_objectness: {6:.5}, loss_rpn_box_reg: {7:.5}, LR: {8:.5}".format(
-            prefix, i, loss_avg.avg, loss_avg.val, loss_dict['loss_box_reg'].item(), loss_dict['loss_classifier'].item(), loss_dict['loss_objectness'].item(), loss_dict['loss_rpn_box_reg'].item(), optimizer.param_groups[0]['lr']
-        )
-        iterator.set_description(status)
+        
+        # Print progress status if using custom progress bar
+        if stage_progress:
+            status = (
+                f"{prefix}[Train][{i}] Loss_avg: {loss_avg.avg:.5f}, Loss: {loss_avg.val:.5f}, "
+                f"loss_box_reg: {loss_dict['loss_box_reg'].item():.5f}, "
+                f"loss_classifier: {loss_dict['loss_classifier'].item():.5f}, "
+                f"loss_objectness: {loss_dict['loss_objectness'].item():.5f}, "
+                f"loss_rpn_box_reg: {loss_dict['loss_rpn_box_reg'].item():.5f}, "
+                f"LR: {optimizer.param_groups[0]['lr']:.5f}"
+            )
+            print(status, end="\r")
         
         del images, targets, loss_dict
         torch.cuda.empty_cache()
+        
+    if stage_progress:
+        print()  # Ensure the final line of the progress bar is cleared
+        
     return {"loss": loss_avg.avg}
 
 
@@ -138,7 +150,7 @@ def test_hook_faster_rcnn(
     device,
     data_getter=None,  
     target_getter=None,
-    iterator_type=tqdm,
+    iterator_type=progress_bar,
     prefix="",
     stage_progress=False,
     get_key_metric=itemgetter("AP")
@@ -163,7 +175,7 @@ def test_hook_faster_rcnn(
             loss: average loss.
     """
     model = model.eval()
-    iterator = iterator_type(loader, disable=not stage_progress, dynamic_ncols=True)
+    iterator = iterator_type(loader, total=len(loader), prefix=prefix) if stage_progress else loader
     metric_fn.reset()
 
     for i, sample in enumerate(iterator):
@@ -198,12 +210,17 @@ def test_hook_faster_rcnn(
             
         for det, target in zip(predictions, eval_targets):
             metric_fn.update_value(det, target)
+        
+        # Print status manually for custom progress bar
+        if stage_progress and get_key_metric is not None:
+            status = f"{prefix}[Test][{i}] Metric_avg: {get_key_metric(metric_fn.get_metric_value()):.5f}"
+            print(status, end="\r")
             
         
     metric_fn.calculate_value()
-    if get_key_metric is not None:
-        status = "Metric_avg: {0:.5}".format(get_key_metric(metric_fn.get_metric_value()))
-    iterator.set_description(status)
+    if stage_progress:
+        print()  # Ensure a clean final line after progress
+        
     output = {"metric": metric_fn.get_metric_value()}
     return output
 

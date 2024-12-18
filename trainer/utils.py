@@ -6,6 +6,7 @@ import psutil
 import cv2
 
 import random
+import time
 import numpy as np
 from datetime import datetime
 
@@ -408,3 +409,36 @@ def id_samples(path, data_type='test'):
         dict_id_samples[i] = list(item_data.keys())[0]
         
     return dict_id_samples
+
+
+def progress_bar(iterable, total, prefix=''):
+    """Displays a progress bar for an iterable.
+
+    Args:
+        iterable (iterable): The iterable to iterate over.
+        total (int): The total number of iterations.
+        prefix (str, optional): A prefix to display before the progress bar. Defaults to ''.
+
+    Yields:
+        The next item from the iterable.
+    """    
+    def print_progress_bar(iteration):
+        """Prints the progress bar.
+
+        Args:
+            iteration (int): The current iteration number.
+        """        
+        percent = ("{0:.1f}%".format(100 * (iteration / float(total))))
+        filledLength = int(round(50 * iteration / float(total)))
+        bar = '█' * filledLength + '-' * (50 - filledLength)
+        print('\r%s |%s| %s/%s %s' % (prefix, bar, iteration, total, percent), end='\r')
+        # Print New Line on Complete
+        if iteration == total: 
+            print()
+
+    start = time.time()
+    for i, item in enumerate(iterable):
+        yield item
+        print_progress_bar(i + 1)
+    end = time.time()
+    print("Time taken: {0}".format(round(end - start, 2)))

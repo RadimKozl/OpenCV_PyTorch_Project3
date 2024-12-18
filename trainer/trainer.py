@@ -17,7 +17,7 @@ from .hooks import test_hook_default, train_hook_default
 from .visualizer import Visualizer
 from .tensorboard_visualizer import WeightsHistogramVisualizer, PRVisualizer
 from .tensorboard_visualizer import ConfusionMatrixVisualizer
-from .utils import memory_management
+from .utils import memory_management, progress_bar
 
 
 class RCNNTrainer:
@@ -73,11 +73,15 @@ class RCNNTrainer:
         self.device = device
         self.model_save_best = model_save_best
         self.model_saving_frequency = model_saving_frequency
-        self.save_dir = save_dir
+        self.save_dir = Path(save_dir)
         self.stage_progress = stage_progress
         self.data_getter = data_getter
         self.target_getter = target_getter
-        self.hooks = {}
+        self.hooks = {
+            "train": None,
+            "test": None,
+            "end_epoch": None
+        }
         self.visualizer = visualizer
         self.get_key_metric = get_key_metric
         self.metrics = {"epoch": [], "train_loss": [], "test_metric": []}
@@ -88,7 +92,11 @@ class RCNNTrainer:
         Arguments:
             epochs (int): number of epochs to train model.
         """
-        iterator = tqdm(range(epochs), dynamic_ncols=True)
+        if not all(self.hooks.values()):
+            raise ValueError("Ensure all hooks (train, test, end_epoch) are registered before training.")
+        
+        #iterator = tqdm(range(epochs), dynamic_ncols=True)
+        iterator = progress_bar(range(epochs), total=epochs, prefix="Epoch"):
         for epoch in iterator:
             output_train = self.hooks["train"](
                 self.model,
@@ -153,13 +161,15 @@ class RCNNTrainer:
 
         return self.metrics
 
-    def register_hook(self, hook_type, hook_fn):
+    def register_hook(self, hook_type: str, hook_fn: Callable):
         """ Register hook method.
 
         Arguments:
             hook_type (string): hook type.
             hook_fn (callable): hook function.
         """
+        if hook_type not in self.hooks:
+            raise ValueError(f"Invalid hook type '{hook_type}'. Must be one of {list(self.hooks.keys())}.")
         self.hooks[hook_type] = hook_fn
 
 
