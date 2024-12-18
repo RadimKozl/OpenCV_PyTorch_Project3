@@ -93,7 +93,7 @@ class DataloaderConfig:
         data_augmentation (bool, optional): Value for setting augmentation method of data
     """
     batch_size: int = 250
-    num_workers: int = 2
+    num_workers: int = 0
     data_augmentation: bool = False
     
     @classmethod
