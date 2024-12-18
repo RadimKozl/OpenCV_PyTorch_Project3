@@ -314,114 +314,53 @@ class JsonClassificationDataset(Dataset):
 
 
 class HDF5Dataset(Dataset):
-    """
-    Class for loading dataset from an HDF5 file.
-
-    This class loads a dataset with a specific structure of directories and labels stored in an HDF5 file.
-    The dataset structure is similar to the one used in the original dataset:
-    https://www.kaggle.com/datasets/mbkinaci/fruit-images-for-object-detection
-
-    Args:
-        Dataset (class): PyTorch Dataset class
-    """
-
     def __init__(self, hdf5_file, dataset_type, transform=None, train=False, width_image=800):
-        """
-        Initialization method for the HDF5Dataset class.
-
-        Args:
-            hdf5_file (str): Path to the HDF5 file.
-            dataset_type (str): Type of dataset ('train', 'valid', 'test').
-            transform (callable, optional): Optional transform to be applied on a sample.
-            train (bool): True if the dataset is for training, False otherwise.
-            width_image (int, optional): required image width for training
-        """
         self.hdf5_file = hdf5_file
         self.dataset_type = dataset_type
         self.transform = transform
         self.train = train
         self.width_image = width_image
-        
-        try:
-            self.database = h5py.File(self.hdf5_file, 'r')
-            self.dataset = self.database[self.dataset_type]
-            self.database_attribute = list(self.database.attrs.keys())
-            self.class_number = int(self.database.attrs[self.database_attribute[0]])
-            self.names_class = list(self.database.attrs[self.database_attribute[1]])
-            self.list_files = list(self.database[self.dataset_type].keys())
-        except FileNotFoundError:
-            print(f"Error: HDF5 file not found {self.hdf5_file}")
-            
-                   
-    def __len__(self):
-        """
-        Returns the number of samples in the dataset.
 
-        Returns:
-            int: Number of samples.
-        """
+        # Load minimal information to initialize dataset
+        with h5py.File(self.hdf5_file, 'r') as database:
+            self.list_files = list(database[self.dataset_type].keys())
+            self.database_attribute = list(database.attrs.keys())
+            self.class_number = int(database.attrs[self.database_attribute[0]])
+            self.names_class = list(database.attrs[self.database_attribute[1]])
+
+    def __len__(self):
         return len(self.list_files)
 
     def __getitem__(self, idx):
-        """
-        Loads an image and its corresponding bounding boxes and labels.
-
-        Args:
-            idx (int): Index of the sample to load.
-
-        Returns:
-            img (tensor): Image tensor.
-            target (dict): Dictionary containing 'boxes' and 'labels'.
-        """
         image_name = self.list_files[idx]
-        try:
-            image_link = self.dataset[image_name]['image_link'][:]
-            image_link = image_link.tolist()[0]
-            image_link = image_link.decode('UTF-8')
-            
-    
-            boxes_values = self.dataset[image_name].attrs['boxes']
-            boxes_values = boxes_values.tolist()
-            
-            image_labels = self.dataset[image_name].attrs['labels']
-            image_labels = image_labels.tolist()
-            
-        except Exception as e:
-            raise ValueError(f"Error reading data for image_name {image_name}: {e}")
 
+        with h5py.File(self.hdf5_file, 'r') as database:
+            dataset = database[self.dataset_type]
+            image_link = dataset[image_name]['image_link'][:].tolist()[0].decode('UTF-8')
 
-        # Load image and boxes.
+            boxes_values = dataset[image_name].attrs['boxes'].tolist()
+            image_labels = dataset[image_name].attrs['labels'].tolist()
+
+        # Load image
         if not os.path.exists(image_link):
             raise FileNotFoundError(f"Image path {image_link} does not exist.")
-
+        
         img = Image.open(image_link).convert("RGB")
         w_img = img.width
         
         if self.train:
-            scale_factor = round(self.width_image/w_img, 2)
+            scale_factor = round(self.width_image / w_img, 2)
             img, boxes_values = scale_image_with_boxes(img, boxes_values, scale_factor)
         
         img = F.to_tensor(img)
 
-        boxes = []
-        labels = []
-        for box in boxes_values:
-            xmin = box[0]
-            ymin = box[1]
-            xmax = box[2]
-            ymax = box[3]
-            boxes.append([float(xmin), float(ymin), float(xmax), float(ymax)])
-        
-        for label in image_labels:
-            labels.append(int(label))
+        # Prepare bounding boxes and labels
+        boxes = torch.tensor(boxes_values, dtype=torch.float32)
+        labels = torch.tensor(image_labels, dtype=torch.int64)
 
-        boxes = torch.tensor(boxes, dtype=torch.float32)
-        labels = torch.tensor(labels, dtype=torch.int64)
-
-        # Data augmentation.
-        if self.transform is not None:
+        # Apply transformations
+        if self.transform:
             img = self.transform(img)
-
         if self.train:
             img, boxes = random_flip(img, boxes)
 
@@ -433,25 +372,15 @@ class HDF5Dataset(Dataset):
         return img, target
 
     def calculate_mean_std_manual(self):
-        """
-        Method for manually calculating mean and standard deviation of the dataset.
-
-        Returns:
-            tuple: mean and std for each channel (R, G, B)
-        """
         mean = np.zeros(3)
         mean_sqrd = np.zeros(3)
         n_pixels = 0
 
-        if len(self.list_files) == 0:
-            raise ValueError("No valid keys found in the dataset. Ensure the dataset is correctly initialized and contains entries.")
-
         for name_file in self.list_files:
             try:
-                # Read data from HDF5, adapting for scalar values
-                image_link = self.dataset[name_file]['image_link'][:]
-                image_link = image_link.tolist()[0]
-                image_link = image_link.decode('UTF-8')
+                with h5py.File(self.hdf5_file, 'r') as database:
+                    dataset = database[self.dataset_type]
+                    image_link = dataset[name_file]['image_link'][:].tolist()[0].decode('UTF-8')
 
                 if not os.path.exists(image_link):
                     print(f"Skipping image {image_link} as it does not exist.")
@@ -460,7 +389,6 @@ class HDF5Dataset(Dataset):
                 img = Image.open(image_link).convert("RGB")
                 img_np = np.array(img, dtype=np.float32) / 255.0
 
-                # Accumulate pixel statistics
                 mean += img_np.mean(axis=(0, 1))
                 mean_sqrd += (img_np ** 2).mean(axis=(0, 1))
                 n_pixels += 1
@@ -473,7 +401,3 @@ class HDF5Dataset(Dataset):
         std = np.sqrt(mean_sqrd - mean ** 2)
 
         return mean, std
-
-    def close(self):
-        if hasattr(self, 'hdf5_file') and self.hdf5_file:
-            self.database.close()
