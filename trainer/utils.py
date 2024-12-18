@@ -163,8 +163,8 @@ def scale_image_with_boxes(image, boxes, scale_factor):
     """
 
     # Get the dimensions of the original image
-    h, w, _ = image.shape
-
+    w, h = image.size
+    
     # Calculating new dimensions
     new_h = int(h * scale_factor)
     new_w = int(w * scale_factor)
