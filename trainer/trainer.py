@@ -93,10 +93,11 @@ class RCNNTrainer:
             epochs (int): number of epochs to train model.
         """
         if not all(self.hooks.values()):
-            raise ValueError("Ensure all hooks (train, test, end_epoch) are registered before training.")
+            missing_hooks = [k for k, v in self.hooks.items() if v is None]
+            raise ValueError(f"The following hooks are not registered: {', '.join(missing_hooks)}")
         
         #iterator = tqdm(range(epochs), dynamic_ncols=True)
-        iterator = progress_bar(range(epochs), total=epochs, prefix="Epoch"):
+        iterator = progress_bar(range(epochs), total=epochs, prefix="Epoch")
         for epoch in iterator:
             output_train = self.hooks["train"](
                 self.model,

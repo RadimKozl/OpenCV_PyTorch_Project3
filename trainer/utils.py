@@ -4,6 +4,7 @@ import os
 import json
 import psutil
 import cv2
+import gc
 
 import random
 import time
@@ -367,26 +368,39 @@ def load_model(model, model_dir='models', model_file_name='model.pt', weights_on
 
 
 def memory_management(epoch):
-    """Function for show memory management of process
+    """Function for showing memory usage and managing resources.
 
     Args:
-        epoch (int): number of epoch
+        epoch (int): Current epoch number.
     """    
+    print("\n" + "=" * 40)
+    print(f"[Epoch {epoch}] Resource Monitoring - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     
-    print(f'In {epoch}, time: {datetime.now()}')
-    
+    # CPU usage
     cpu_percent = psutil.cpu_percent(interval=1)
-    print(f"CPU Usage: {cpu_percent}%")
+    print(f"  CPU Usage     : {cpu_percent}%")
     
+    # Memory usage
     memory_usage = psutil.virtual_memory()
-    print(f"Memory Usage: {memory_usage.percent}%")
+    print(f"  RAM Usage     : {memory_usage.percent}% ({memory_usage.used / (1024 ** 3):.2f} GB / {memory_usage.total / (1024 ** 3):.2f} GB)")
     
+    # Disk usage
     disk_usage = psutil.disk_usage('/')
-    print(f"Disk Usage: {disk_usage.percent}%")
+    print(f"  Disk Usage    : {disk_usage.percent}%")
     
-    ## Get GPU statistics
-    max_memory_allocated = torch.cuda.max_memory_allocated(device=None)
-    print("Maximum GPU memory allocated:", max_memory_allocated / (1024 ** 2), "MB")
+    # GPU statistics
+    if torch.cuda.is_available():
+        max_memory_allocated = torch.cuda.max_memory_allocated(device=None)
+        print(f"  GPU Max Alloc : {max_memory_allocated / (1024 ** 2):.2f} MB")
+        print(f"  GPU Free Mem  : {torch.cuda.memory_reserved() / (1024 ** 2):.2f} MB")
+    else:
+        print("  GPU Usage     : GPU not available")
+    
+    # Cleanup
+    gc.collect()
+    torch.cuda.empty_cache()
+    print(f"Resource cleanup complete for epoch {epoch}")
+    print("=" * 40 + "\n")
     
 
 def id_samples(path, data_type='test'):
