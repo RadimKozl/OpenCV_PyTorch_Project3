@@ -3,6 +3,7 @@
 import os
 import json
 import psutil
+from PIL import Image
 import cv2
 import gc
 
@@ -170,7 +171,7 @@ def scale_image_with_boxes(image, boxes, scale_factor):
     new_w = int(w * scale_factor)
 
     # Image scaling
-    resized_image = cv2.resize(image, (new_w, new_h))
+    resized_image = image.resize((new_w, new_h))
 
     # Editing bounding box coordinates
     scaled_boxes = []
