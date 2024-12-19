@@ -45,6 +45,8 @@ class RCNNTrainer:
         function object to extract target data from the sample prepared by dataloader.
     visualizer : Visualizer, optional
         shows metrics values (various backends are possible)
+    weighthistogram: Union[WeightsHistogramVisualizer, None], optional 
+        show weight histogram. Defaults to None.
     # """
     def __init__( 
         self,
@@ -62,6 +64,7 @@ class RCNNTrainer:
         target_getter: Callable = itemgetter("target"),
         stage_progress: bool = True,
         visualizer: Union[Visualizer, None] = None,
+        weighthistogram: Union[WeightsHistogramVisualizer, None] = None,
         get_key_metric: Callable = itemgetter("top1"),
     ):
         self.model = model
@@ -83,6 +86,7 @@ class RCNNTrainer:
             "end_epoch": None
         }
         self.visualizer = visualizer
+        self.weighthistogram = weighthistogram
         self.get_key_metric = get_key_metric
         self.metrics = {"epoch": [], "train_loss": [], "test_metric": []}
 
@@ -135,6 +139,9 @@ class RCNNTrainer:
                     self.lr_scheduler.step(output_train['loss'])
                 else:
                     self.lr_scheduler.step()
+                    
+            if self.weighthistogram is not None:
+                self.weighthistogram.update_charts(model=self.model, epoch=epoch)
 
             if self.hooks["end_epoch"] is not None:
                 self.hooks["end_epoch"](iterator, epoch, output_train, output_test)
