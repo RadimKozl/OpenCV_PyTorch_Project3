@@ -92,7 +92,7 @@ class DataloaderConfig:
         num_workers (int, optional): Number of concurrent processes using to prepare data, for free Colab num_workers=2, for free Kaggle num_workers=4
         data_augmentation (bool, optional): Value for setting augmentation method of data
     """
-    batch_size: int = 64
+    batch_size: int = 8
     num_workers: int = 0
     data_augmentation: bool = False
     
@@ -175,7 +175,7 @@ class TrainerConfig:
     model_save_best: bool = True
     model_saving_frequency: int = 1
     device: str = "cpu"
-    epoch_num: int = 30
+    epoch_num: int = 50
     progress_bar: bool = False
     normalization: bool= False
     
