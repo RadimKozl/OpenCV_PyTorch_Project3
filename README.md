@@ -18,6 +18,4 @@
 
 ## Video
 
-Drag and drop videos:
-
-https://github.com/RadimKozl/OpenCV_PyTorch_Project3/blob/main/results/output_projet3_input_video.mp4
+output_projet3_input_video.mp4
