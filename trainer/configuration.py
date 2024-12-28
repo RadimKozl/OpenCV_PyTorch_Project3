@@ -175,7 +175,7 @@ class TrainerConfig:
     model_save_best: bool = True
     model_saving_frequency: int = 1
     device: str = "cpu"
-    epoch_num: int = 50
+    epoch_num: int = 10
     progress_bar: bool = False
     normalization: bool= False
     
