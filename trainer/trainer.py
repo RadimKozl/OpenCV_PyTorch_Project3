@@ -146,26 +146,48 @@ class RCNNTrainer:
             if self.hooks["end_epoch"] is not None:
                 self.hooks["end_epoch"](iterator, epoch, output_train, output_test)
 
+            # Save best checkpoint
             if self.model_save_best:
                 best_acc = max([self.get_key_metric(item) for item in self.metrics['test_metric']])
                 current_acc = self.get_key_metric(output_test['metric'])
 
                 if current_acc >= best_acc:
                     os.makedirs(self.save_dir, exist_ok=True)
+                    checkpoint = {
+                        'model_state_dict': self.model.state_dict(),
+                        'optimizer_state_dict': self.optimizer.state_dict(),
+                        'scheduler_state_dict': self.lr_scheduler.state_dict(),
+                        'epoch': epoch + 1,
+                        'best_acc': best_acc,
+                    }
                     torch.save(
-                        self.model.state_dict(),
+                        checkpoint,
                         os.path.join(self.save_dir, self.model.__class__.__name__) + '_best.pth'
                     )
             else:
+                # Save periodic checkpoint
                 if (epoch + 1) % self.model_saving_frequency == 0:
                     os.makedirs(self.save_dir, exist_ok=True)
+                    checkpoint = {
+                        'model_state_dict': self.model.state_dict(),
+                        'optimizer_state_dict': self.optimizer.state_dict(),
+                        'scheduler_state_dict': self.lr_scheduler.state_dict(),
+                        'epoch': epoch + 1,
+                    }
                     torch.save(
                         self.model.state_dict(),
                         os.path.join(self.save_dir, self.model.__class__.__name__) + '_' +
-                        str(datetime.datetime.now()) + '.pth'
+                        str(datetime.datetime.now().strftime("%Y%m%d_%H%M%S")) + '.pth'
                     )
                     
             memory_management(epoch)
+        
+        # Save final model after training is complete
+        os.makedirs(self.save_dir, exist_ok=True)
+        torch.save(
+            self.model.state_dict(),
+            os.path.join(self.save_dir, self.model.__class__.__name__) + '_final.pth'
+        )
 
         return self.metrics
 
