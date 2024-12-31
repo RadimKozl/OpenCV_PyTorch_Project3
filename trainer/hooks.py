@@ -50,6 +50,7 @@ def train_hook_faster_rcnn(
         Dictionary of output metrics with keys:
             loss: average loss.
     """
+    model = model.to(device)
     model = model.train()
     iterator = iterator_type(loader, total=len(loader), prefix=prefix) if stage_progress else loader
     loss_avg = AverageMeter()
@@ -174,6 +175,7 @@ def test_hook_faster_rcnn(
             metric: output metric.
             loss: average loss.
     """
+    model = model.to(device)
     model = model.eval()
     iterator = iterator_type(loader, total=len(loader), prefix=prefix) if stage_progress else loader
     metric_fn.reset()
