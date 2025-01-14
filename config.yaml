@@ -19,7 +19,7 @@ system:
   seed: 42
 trainer:
   device: cuda
-  epoch_num: 8
+  epoch_num: 10
   model_dir: /kaggle/working/modelscheckpoints
   model_save_best: true
   model_saving_frequency: 1
