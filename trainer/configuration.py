@@ -127,7 +127,7 @@ class OptimizerConfig:
         lr_step_milestones (Iterable, optional): At which epoches should we make a "step" in learning rate (i.e. decrease it in some manner)
         lr_gamma (float, optional): Multiplier applied to current learning rate at each of lr_ctep_milestones
     """
-    learning_rate: float = 0.001
+    learning_rate: float = 0.0005
     momentum: float = 0.9
     weight_decay: float = 0.0001
     lr_step_milestones: Iterable = (
